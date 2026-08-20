@@ -1,0 +1,2029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PillEase — Interactive CAD Prototype | Rev 2.0 Engineer Reference</title>
+<style>
+:root {
+  --bg: #080c12;
+  --panel: #0e1520;
+  --panel2: #152030;
+  --border: #243044;
+  --text: #e6eef8;
+  --muted: #7a8fa8;
+  --accent: #4a9fd8;
+  --accent2: #5dcf9a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  height: 100vh;
+}
+#app { display: flex; height: 100vh; }
+#viewport { flex: 1; position: relative; background: #080c12; }
+canvas { display: block; width: 100%; height: 100%; }
+.panel {
+  width: 292px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  font-size: 12.5px;
+  z-index: 10;
+}
+.panel.right { border-right: none; border-left: 1px solid var(--border); }
+.panel-header {
+  padding: 12px 14px;
+  background: var(--panel2);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  background: #1a3a2e;
+  color: var(--accent2);
+}
+.panel-section {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-section h3 {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.9px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.btn {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 5px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+  transition: all 0.12s;
+}
+.btn:hover { background: #1c2c40; border-color: var(--accent); }
+.btn.primary {
+  background: linear-gradient(135deg, #2a6a9a, #1e4e78);
+  border-color: #3a7ab0;
+  font-weight: 600;
+}
+.btn.primary:hover { background: linear-gradient(135deg, #3a7ab0, #2a6a9a); }
+.btn.active { border-color: var(--accent2); background: #163028; color: var(--accent2); }
+.row { display: flex; gap: 5px; margin-bottom: 5px; }
+.row .btn { flex: 1; text-align: center; padding: 7px 4px; font-size: 11px; }
+label.check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0;
+  cursor: pointer;
+  color: var(--muted);
+}
+label.check input { accent-color: var(--accent); width: 13px; height: 13px; }
+label.check span { color: var(--text); font-size: 12px; }
+.slider-wrap { margin: 6px 0; }
+.slider-wrap label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+input[type=range] { width: 100%; accent-color: var(--accent); height: 4px; }
+#status-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 7px 14px;
+  background: rgba(8,12,18,0.92);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  backdrop-filter: blur(8px);
+  z-index: 5;
+}
+#status-bar strong { color: var(--accent2); }
+#hud {
+  position: absolute;
+  top: 10px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(14,21,32,0.92);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: 12px;
+  pointer-events: none;
+  backdrop-filter: blur(6px);
+  z-index: 5;
+  white-space: nowrap;
+}
+#hud span { color: var(--accent2); font-weight: 600; }
+#gizmo-container {
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 90px; height: 90px;
+  z-index: 6;
+  pointer-events: none;
+}
+#pill-counter {
+  position: absolute;
+  top: 12px; right: 112px;
+  background: rgba(14,21,32,0.92);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  gap: 14px;
+  z-index: 6;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+#pill-counter .pc-col { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+#pill-counter .pc-label { color: var(--muted); font-size: 10px; letter-spacing: 0.6px; }
+#pill-counter .pc-val { color: var(--accent2); font-weight: 700; font-family: ui-monospace, monospace; font-size: 16px; transition: color 0.2s; }
+#pill-counter .pc-val.pc-flash { color: var(--accent); }
+#telemetry {
+  position: absolute;
+  top: 110px; right: 12px;
+  width: 260px;
+  background: rgba(14,21,32,0.95);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 11.5px;
+  z-index: 6;
+  display: none;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+#telemetry h4 {
+  font-size: 13px;
+  color: var(--accent2);
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+#telemetry .row-t {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(36,48,68,0.5);
+}
+#telemetry .row-t span:first-child { color: var(--muted); }
+#telemetry .row-t span:last-child { color: var(--text); font-family: ui-monospace, monospace; font-size: 11px; }
+.legend { font-size: 11px; color: var(--muted); line-height: 1.55; }
+.dim { color: var(--accent); font-family: ui-monospace, monospace; font-size: 11px; }
+#cine-bar {
+  position: absolute;
+  bottom: 42px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(14,21,32,0.95);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 12px;
+  z-index: 6;
+  display: none;
+  min-width: 320px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+}
+#cine-bar .step { color: var(--accent2); font-weight: 600; margin-bottom: 4px; }
+#cine-bar .progress {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+#cine-bar .progress-fill {
+  height: 100%;
+  background: var(--accent2);
+  width: 0%;
+  transition: width 0.3s linear;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="panel">
+    <div class="panel-header">PillEase CAD <span class="badge">Rev 2.0</span></div>
+    <div class="panel-section">
+      <h3>Multi-View CAD Matrix</h3>
+      <button class="btn active" id="view-iso">Isometric Nominal CAD</button>
+      <button class="btn" id="view-front">Front Elevation (X-Z)</button>
+      <button class="btn" id="view-side">Side Profile (Y-Z)</button>
+      <button class="btn" id="view-top">Top-Down Feed Track (X-Y)</button>
+      <button class="btn" id="view-exploded">Exploded View</button>
+      <button class="btn" id="view-section">Section A-A (Cutaway)</button>
+      <button class="btn" id="view-xray">X-Ray (Translucent)</button>
+      <div class="slider-wrap">
+        <label>Explosion Factor <span id="expl-val">0%</span></label>
+        <input type="range" id="explosion" min="0" max="100" value="0">
+      </div>
+    </div>
+    <div class="panel-section">
+      <h3>Components</h3>
+      <label class="check"><input type="checkbox" id="c-housing" checked><span>Main Housing Shell</span></label>
+      <label class="check"><input type="checkbox" id="c-sleeve" checked><span>Exterior Sleeve</span></label>
+      <label class="check"><input type="checkbox" id="c-cap" checked><span>Loading Cap</span></label>
+      <label class="check"><input type="checkbox" id="c-channels" checked><span>Dual Channels + Micro-ribs</span></label>
+      <label class="check"><input type="checkbox" id="c-pills" checked><span>Tablet Stacks (30)</span></label>
+      <label class="check"><input type="checkbox" id="c-springs" checked><span>Mag-Spring Subassy</span></label>
+      <label class="check"><input type="checkbox" id="c-pushers" checked><span>Pusher Plates</span></label>
+      <label class="check"><input type="checkbox" id="c-ydiverter" checked><span>Y-Diverter Gate</span></label>
+      <label class="check"><input type="checkbox" id="c-aperture" checked><span>Dispensing Aperture</span></label>
+      <label class="check"><input type="checkbox" id="c-iris" checked><span>Iris Gravity Gate</span></label>
+      <label class="check"><input type="checkbox" id="c-sliders" checked><span>Thumb Sliders</span></label>
+      <label class="check"><input type="checkbox" id="c-zsuc" checked><span>Z-SUC Collar</span></label>
+      <label class="check"><input type="checkbox" id="c-vial"><span>Pharmacy Vial</span></label>
+      <label class="check"><input type="checkbox" id="c-bbox" checked><span>Datum A Bounding Box</span></label>
+      <label class="check"><input type="checkbox" id="c-grid" checked><span>Precision CAD Grid</span></label>
+      <label class="check"><input type="checkbox" id="c-dims" checked><span>Dimension Callouts</span></label>
+    </div>
+    <div class="panel-section">
+      <h3>Rev 2.0 Key Specs</h3>
+      <div class="legend">
+        Envelope: <span class="dim">110 × 28 × 15 mm</span><br>
+        Wall thickness: <span class="dim">2.25 mm</span><br>
+        Channels: <span class="dim">11.00 mm</span> × 75 mm stack<br>
+        Spring boss: <span class="dim">8.50 / 4.80 × 12 mm</span><br>
+        Pusher: <span class="dim">10.75 OD × 5.0 mm</span><br>
+        Iris plate: <span class="dim">25.00 OD × 2.50 mm</span><br>
+        Slider stroke: <span class="dim">15.50 mm</span><br>
+        Tablets: <span class="dim">Ø9.5 × 3.0 mm</span> ×15/col<br>
+        Ramp: <span class="dim">20°</span> · Bayonet: <span class="dim">15° CW</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="viewport">
+    <div id="hud">Status: <span id="hud-text">Assembled — Ready</span></div>
+    <div id="pill-counter">
+      <div class="pc-col"><span class="pc-label">A</span><span class="pc-val" id="count-a">15</span></div>
+      <div class="pc-col"><span class="pc-label">B</span><span class="pc-val" id="count-b">15</span></div>
+    </div>
+    <div id="gizmo-container"></div>
+    <div id="telemetry">
+      <h4 id="tel-name">Component</h4>
+      <div class="row-t"><span>Material</span><span id="tel-mat">—</span></div>
+      <div class="row-t"><span>Tolerances</span><span id="tel-tol">—</span></div>
+      <div class="row-t"><span>Unit Cost</span><span id="tel-cost">—</span></div>
+      <div class="row-t"><span>Lead Time</span><span id="tel-lead">—</span></div>
+      <div class="row-t"><span>FEA / Status</span><span id="tel-fea">—</span></div>
+      <div class="row-t"><span>Designer</span><span id="tel-des">—</span></div>
+    </div>
+    <div id="cine-bar">
+      <div class="step" id="cine-step">Step 1 of 5</div>
+      <div id="cine-desc">Preparing transfer…</div>
+      <div class="progress"><div class="progress-fill" id="cine-progress"></div></div>
+    </div>
+    <div id="status-bar">
+      <div>PillEase Interactive CAD · Rev 2.0 Engineer Prototype</div>
+      <div>Orbit LMB · Pan RMB · Zoom Wheel · Click part for DFM · <strong id="status-mode">Isometric</strong></div>
+    </div>
+  </div>
+
+  <div class="panel right">
+    <div class="panel-header">Animations & Physics</div>
+    <div class="panel-section">
+      <h3>5-State Cinematic Sequence</h3>
+      <button class="btn primary" id="anim-full">▶ Play Full Sequence</button>
+      <button class="btn" id="anim-full-still">▶ Play Still Sequence</button>
+      <button class="btn" id="anim-s1">1. Docking & 15° Lock</button>
+      <button class="btn" id="anim-s2">2. Iris Open & Gravity Feed</button>
+      <button class="btn" id="anim-s3">3. Slider Cycle & Dispense</button>
+      <button class="btn" id="anim-s4">4. Fail-Safe Lockout</button>
+      <button class="btn" id="anim-s5">5. Ejection & Aperture Clear</button>
+    </div>
+    <div class="panel-section">
+      <h3>Mechanism Demos</h3>
+      <button class="btn" id="anim-iris">Iris Gate Open / Close</button>
+      <button class="btn" id="anim-spring">Spring Compression</button>
+      <button class="btn" id="anim-dispense">Precision Dispense (15.5 mm)</button>
+      <button class="btn" id="anim-pills">Gravity Pill Drop</button>
+    </div>
+    <div class="panel-section">
+      <h3>Controls</h3>
+      <button class="btn" id="anim-reset">↻ Reset All</button>
+      <button class="btn" id="anim-stop">■ Stop Animation</button>
+    </div>
+    <div class="panel-section">
+      <h3>Sequence Reference</h3>
+      <div class="legend">
+        <strong>1.</strong> Thread Z-SUC onto vial<br>
+        <strong>2.</strong> Flip Loading Cap · dock inverted vial<br>
+        <strong>3.</strong> 15° CW → bayonet lock + Iris opens<br>
+        <strong>4.</strong> Gravity → Y-Diverter → dual 11 mm channels<br>
+        <strong>5.</strong> 15° CCW → Iris auto-seals · cap shut
+      </div>
+    </div>
+    <div class="panel-section">
+      <h3>Materials (PBR)</h3>
+      <div class="legend">
+        Housing: Medical ABS (bright blue)<br>
+        Sleeve: 40A LSR / TPE texture<br>
+        Channels: Clear PC (high transmission)<br>
+        Springs: 316 SS (high specular)<br>
+        Pushers: Anodized Al + silicone liner<br>
+        Z-SUC: Glass-filled PP (bright white)<br>
+        Iris: Polished polymer + torsion SS<br>
+        Pills: Ø9.5 mm matte white tablets
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+const H = 110.0, W = 28.0, D = 15.0;
+const WALL = 2.25;
+const CHAN_W = 11.00;
+const STACK_H = 75.00;
+const SPRING_OD = 8.50, SPRING_ID = 4.80, SPRING_H = 12.00;
+const PUSHER_OD = 10.75, PUSHER_T = 5.00;
+const IRIS_OD = 25.00, IRIS_T = 2.50;
+const SLIDER_STROKE = 15.50;
+const PILL_D = 9.5, PILL_T = 3.0;
+const COL_OFF = 5.9;
+const WINDOW_COUNT = 15;
+const APERTURE_W = 5.50;
+const APERTURE_Y = 89.0;
+const TPE_LIP = 1.5;
+const DOOR_TRAVEL = 4.5;
+
+const COMP_DB = {
+  housing: { name: 'Main Housing Shell', material: 'Medical-grade ABS', tol: '±0.10 mm general', cost: '$0.42 / unit @10k', lead: '4–6 weeks (tooling)', fea: 'Approved — FEA Rev B', designer: 'PillEase Mech Team' },
+  sleeve: { name: 'Exterior Sleeve', material: '40A LSR / TPE overmold', tol: '±0.15 mm ID', cost: '$0.18 / unit', lead: '3 weeks', fea: 'Acoustic validated', designer: 'Materials Eng' },
+  cap: { name: 'Loading Cap', material: 'Medical ABS', tol: '±0.10 mm', cost: '$0.09 / unit', lead: 'Shared tool', fea: 'Approved', designer: 'PillEase Mech Team' },
+  channels: { name: 'Dual Internal Channels', material: 'Clear Polycarbonate', tol: '11.00 +0.00/−0.10 mm', cost: 'Integral to housing', lead: '—', fea: 'DFM hard constraint', designer: 'PillEase Mech Team' },
+  pills: { name: 'Tablet Stack (×30)', material: 'Reference: Ø9.5 × 3.0 mm flat', tol: 'Ø7.0–11.0 mm compatible', cost: '—', lead: '—', fea: 'Flow validated', designer: '—' },
+  springs: { name: 'Mag-Spring Subassembly', material: '316 SS + N52 magnet', tol: 'Boss 8.50/4.80 ±0.05', cost: '$0.31 / pair', lead: '2 weeks', fea: 'Fatigue tested 50k cycles', designer: 'Mechanisms' },
+  pushers: { name: 'Pusher Plate', material: 'Anodized Al + 1 mm silicone', tol: '10.75 OD ±0.05', cost: '$0.14 / pair', lead: '2 weeks', fea: 'Approved', designer: 'Mechanisms' },
+  ydiverter: { name: 'Kinetic Y-Diverter Gate', material: 'Polished 304 SS / Polymer', tol: '±0.10 mm', cost: '$0.22', lead: '3 weeks', fea: 'Jam-rate <0.5%', designer: 'Flow Dynamics' },
+  aperture: { name: 'Dispensing Aperture (Pez-Style Sliding Door)', material: 'SS304 flush frame + 1.5mm 30A TPE cushion lip · housing-color sliding door', tol: '5.50 +0.00/−0.05 mm aperture · TPE lip 1.5 ±0.10 mm · door travel 4.5 mm', cost: '$0.08 / unit', lead: '2 weeks', fea: 'Cushion validated — chip-free release', designer: 'Mechanisms' },
+  iris: { name: 'Iris Gravity Gate', material: 'Polished polymer + torsion SS', tol: '25.00 OD ±0.08 · 2.50 T', cost: '$0.27', lead: '3 weeks', fea: 'Fail-safe validated', designer: 'Mechanisms' },
+  sliders: { name: 'Thumb Slider', material: 'Nylon PA + 30–50A TPE', tol: 'Stroke 15.50 ±0.15 mm', cost: '$0.16 / pair', lead: '2 weeks', fea: 'Acoustic overmold OK', designer: 'UI / Ergonomics' },
+  zsuc: { name: 'Z-SUC Transfer Collar', material: 'Glass-filled PP', tol: '28–38 mm neck · 15° lock', cost: '$0.35', lead: '4 weeks', fea: 'Universal fit validated', designer: 'Interface Team' },
+  vial: { name: 'Pharmacy Vial (ref)', material: 'Amber PET / HDPE', tol: '13–30 dram standard', cost: '—', lead: '—', fea: '—', designer: '—' }
+};
+
+let scene, camera, renderer, labelRenderer, controls;
+let groups = {};
+let dimLabels = [];
+let animating = false;
+let animFrame = null;
+let explosion = 0;
+let irisOpen = 0;
+let springComp = 0;
+let capOpen = 0;
+let countA = 15;
+let countB = 15;
+let raycaster, mouse;
+let gizmoScene, gizmoCam, gizmoRenderer;
+let gridMesh, bboxHelper;
+let viewMode = 'iso';
+let materialBackup = new Map();
+
+// ── Brighter, more realistic materials ──
+const mat = {
+  housing: new THREE.MeshPhysicalMaterial({
+    color: 0x7ec8f0, roughness: 0.28, metalness: 0.03,
+    clearcoat: 0.55, clearcoatRoughness: 0.2, side: THREE.DoubleSide
+  }),
+  sleeve: new THREE.MeshPhysicalMaterial({
+    color: 0x6ab8e0, roughness: 0.68, metalness: 0.0
+  }),
+  clearPC: new THREE.MeshPhysicalMaterial({
+    color: 0xd0e8f8, transparent: true, opacity: 0.22,
+    roughness: 0.06, metalness: 0.0, transmission: 0.85,
+    thickness: 2.0, ior: 1.49, side: THREE.DoubleSide
+  }),
+  // Dedicated cover-lens glass for the front viewing windows — clearer/less
+  // tinted than the internal channel tube, so pills and numbers read clearly
+  windowGlass: new THREE.MeshPhysicalMaterial({
+    color: 0xdcf0ff, transparent: true, opacity: 0.10,
+    roughness: 0.04, metalness: 0.0, transmission: 0.94,
+    thickness: 1.0, ior: 1.49, side: THREE.DoubleSide
+  }),
+  // Accurate white/cream tablets (product shots show white)
+  pill: new THREE.MeshPhysicalMaterial({
+    color: 0xf5f0e8, roughness: 0.35, metalness: 0.0,
+    sheen: 0.25, sheenRoughness: 0.5, sheenColor: 0xffffff
+  }),
+  ss316: new THREE.MeshStandardMaterial({
+    color: 0xd0d8e0, metalness: 0.96, roughness: 0.12
+  }),
+  ss304: new THREE.MeshStandardMaterial({
+    color: 0xb8c0c8, metalness: 0.93, roughness: 0.16
+  }),
+  anodAl: new THREE.MeshStandardMaterial({
+    color: 0x9aa2aa, metalness: 0.82, roughness: 0.35
+  }),
+  zsuc: new THREE.MeshPhysicalMaterial({
+    color: 0xf2f2ee, roughness: 0.32, metalness: 0.04,
+    clearcoat: 0.3, clearcoatRoughness: 0.4
+  }),
+  vial: new THREE.MeshPhysicalMaterial({
+    color: 0xd07020, transparent: true, opacity: 0.55,
+    roughness: 0.18, metalness: 0.1
+  }),
+  iris: new THREE.MeshPhysicalMaterial({
+    color: 0xe0e4e8, roughness: 0.1, metalness: 0.4,
+    clearcoat: 0.5, clearcoatRoughness: 0.15
+  }),
+  slider: new THREE.MeshStandardMaterial({
+    color: 0x3a4550, metalness: 0.2, roughness: 0.5
+  }),
+  silicone: new THREE.MeshPhysicalMaterial({
+    color: 0x1e242c, roughness: 0.8, metalness: 0.0
+  }),
+  tpe: new THREE.MeshPhysicalMaterial({
+    color: 0x6ab8e0, roughness: 0.72, metalness: 0.0
+  }),
+  ghost: new THREE.LineBasicMaterial({ color: 0x5ab0e8, transparent: true, opacity: 0.5 })
+};
+
+function createCADGrid() {
+  const gridSize = 200;
+  const geo = new THREE.PlaneGeometry(gridSize, gridSize, 1, 1);
+  const uniforms = {
+    uMinor: { value: 1.0 },
+    uMajor: { value: 10.0 },
+    uFade: { value: 90.0 },
+    uAxisX: { value: new THREE.Color(0xe05050) },
+    uAxisZ: { value: new THREE.Color(0x5090e0) },
+    uGrid: { value: new THREE.Color(0x1a2838) },
+    uMajorC: { value: new THREE.Color(0x2a4058) }
+  };
+  const matGrid = new THREE.ShaderMaterial({
+    uniforms,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    vertexShader: `
+      varying vec3 vWorldPos;
+      void main() {
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vWorldPos = wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }
+    `,
+    fragmentShader: `
+      precision highp float;
+      varying vec3 vWorldPos;
+      uniform float uMinor, uMajor, uFade;
+      uniform vec3 uAxisX, uAxisZ, uGrid, uMajorC;
+      float aaline(float dist, float width) {
+        return 1.0 - smoothstep(width - 0.5, width + 0.5, dist);
+      }
+      void main() {
+        vec2 p = vWorldPos.xz;
+        float dist = length(p);
+        float fade = 1.0 - smoothstep(uFade * 0.6, uFade, dist);
+        vec2 minor = abs(fract(p / uMinor - 0.5) - 0.5);
+        float dMinor = min(minor.x, minor.y) * uMinor;
+        float aMinor = aaline(dMinor, 0.12) * 0.25;
+        vec2 major = abs(fract(p / uMajor - 0.5) - 0.5);
+        float dMajor = min(major.x, major.y) * uMajor;
+        float aMajor = aaline(dMajor, 0.22) * 0.55;
+        float aX = aaline(abs(p.y), 0.35);
+        float aZ = aaline(abs(p.x), 0.35);
+        vec3 col = uGrid * aMinor + uMajorC * aMajor;
+        col = mix(col, uAxisX, aX * 0.9);
+        col = mix(col, uAxisZ, aZ * 0.9);
+        float alpha = max(max(aMinor, aMajor), max(aX, aZ)) * fade;
+        if (alpha < 0.02) discard;
+        gl_FragColor = vec4(col, alpha);
+      }
+    `
+  });
+  const mesh = new THREE.Mesh(geo, matGrid);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = -0.5;
+  mesh.name = 'CADGrid';
+  return mesh;
+}
+
+function createBoundingBox() {
+  const g = new THREE.Group();
+  g.name = 'DatumA';
+  const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(W, H, D));
+  const lines = new THREE.LineSegments(edges, mat.ghost);
+  lines.position.y = H / 2;
+  g.add(lines);
+  const tickMat = new THREE.LineBasicMaterial({ color: 0x5dcf9a, transparent: true, opacity: 0.7 });
+  const corners = [
+    [-W/2, 0, -D/2], [W/2, 0, -D/2], [-W/2, 0, D/2], [W/2, 0, D/2],
+    [-W/2, H, -D/2], [W/2, H, -D/2], [-W/2, H, D/2], [W/2, H, D/2]
+  ];
+  corners.forEach(c => {
+    const pts = [
+      new THREE.Vector3(c[0], c[1], c[2]),
+      new THREE.Vector3(c[0] + Math.sign(c[0] || 1) * 3, c[1], c[2]),
+      new THREE.Vector3(c[0], c[1], c[2]),
+      new THREE.Vector3(c[0], c[1] + (c[1] > H / 2 ? 3 : -3), c[2]),
+      new THREE.Vector3(c[0], c[1], c[2]),
+      new THREE.Vector3(c[0], c[1], c[2] + Math.sign(c[2] || 1) * 3)
+    ];
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    g.add(new THREE.LineSegments(geo, tickMat));
+  });
+  return g;
+}
+
+function roundedBoxGeo(w, h, d, r) {
+  const shape = new THREE.Shape();
+  const x = -w / 2, y = -h / 2;
+  shape.moveTo(x + r, y);
+  shape.lineTo(x + w - r, y);
+  shape.quadraticCurveTo(x + w, y, x + w, y + r);
+  shape.lineTo(x + w, y + h - r);
+  shape.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  shape.lineTo(x + r, y + h);
+  shape.quadraticCurveTo(x, y + h, x, y + h - r);
+  shape.lineTo(x, y + r);
+  shape.quadraticCurveTo(x, y, x + r, y);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false, curveSegments: 8 });
+  geo.translate(0, 0, -d / 2);
+  return geo;
+}
+
+function makeSpring(od, id, height, turns, wire) {
+  const radius = (od + id) / 4;
+  const pts = [];
+  const segs = turns * 24;
+  for (let i = 0; i <= segs; i++) {
+    const t = i / segs;
+    const a = t * Math.PI * 2 * turns;
+    pts.push(new THREE.Vector3(Math.cos(a) * radius, t * height - height / 2, Math.sin(a) * radius));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  return new THREE.Mesh(new THREE.TubeGeometry(curve, segs, wire / 2, 6, false), mat.ss316);
+}
+
+function makeDimLabel(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  div.style.cssText = 'background:rgba(14,21,32,0.9);color:#5dcf9a;padding:3px 8px;border-radius:4px;font-size:11px;font-family:ui-monospace,monospace;border:1px solid #243044;white-space:nowrap;pointer-events:none;';
+  return new CSS2DObject(div);
+}
+
+function buildModel() {
+  const root = new THREE.Group();
+  root.name = 'PillEaseRoot';
+
+  // 1. Main Housing — shell + a true front-face plate with two window cutouts
+  const housingG = new THREE.Group();
+  housingG.name = 'housing';
+  const bodyH = H - 16;
+  const shellDepth = D - WALL;
+
+  // Rear/side shell — solid, unperforated, extends from the back face to just
+  // behind the front wall thickness
+  const shellBody = new THREE.Mesh(roundedBoxGeo(W, bodyH, shellDepth, 3.2), mat.housing);
+  shellBody.position.set(0, bodyH / 2, -WALL / 2);
+  shellBody.userData.compKey = 'housing';
+  shellBody.castShadow = true;
+  shellBody.receiveShadow = true;
+  housingG.add(shellBody);
+
+  // Front face-plate — only the wall thickness deep, with two true rectangular
+  // window cutouts (a real perforation through the front wall, not a decal)
+  function makeRoundedRectPath(target, cx0, cy0, w, h, r) {
+    target.moveTo(cx0 + r, cy0);
+    target.lineTo(cx0 + w - r, cy0);
+    target.quadraticCurveTo(cx0 + w, cy0, cx0 + w, cy0 + r);
+    target.lineTo(cx0 + w, cy0 + h - r);
+    target.quadraticCurveTo(cx0 + w, cy0 + h, cx0 + w - r, cy0 + h);
+    target.lineTo(cx0 + r, cy0 + h);
+    target.quadraticCurveTo(cx0, cy0 + h, cx0, cy0 + h - r);
+    target.lineTo(cx0, cy0 + r);
+    target.quadraticCurveTo(cx0, cy0, cx0 + r, cy0);
+  }
+  const winHoleW = 9.5, winHoleH = STACK_H;
+  const winWorldYCenter = 14 + STACK_H / 2;
+  function frontPlateShape() {
+    const shape = new THREE.Shape();
+    makeRoundedRectPath(shape, -W / 2, -bodyH / 2, W, bodyH, 3.2);
+    const shapeYCenter = winWorldYCenter - bodyH / 2;
+    [-COL_OFF, COL_OFF].forEach(cx => {
+      const hole = new THREE.Path();
+      makeRoundedRectPath(hole, cx - winHoleW / 2, shapeYCenter - winHoleH / 2, winHoleW, winHoleH, 1.4);
+      shape.holes.push(hole);
+    });
+    return shape;
+  }
+  const frontPlate = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(frontPlateShape(), { depth: WALL, bevelEnabled: false, curveSegments: 8 }),
+    mat.housing
+  );
+  frontPlate.position.set(0, bodyH / 2, D / 2 - WALL);
+  frontPlate.userData.compKey = 'housing';
+  frontPlate.castShadow = true;
+  housingG.add(frontPlate);
+
+  // Glazing — clear cover-lens plastic filling each window, flush with the
+  // outer surface, so the dual columns are visible with their 1–15 numbering
+  [-COL_OFF, COL_OFF].forEach(cx => {
+    const pane = new THREE.Mesh(new THREE.BoxGeometry(winHoleW, STACK_H, 0.6), mat.windowGlass);
+    pane.position.set(cx, winWorldYCenter, D / 2 - 0.3);
+    pane.userData.compKey = 'housing';
+    housingG.add(pane);
+  });
+
+  // Dual window numbering — printed directly on the window, 1–15 (15 nearest
+  // the cap, 1 nearest dispense), plus A/B column headers, matching the
+  // reference photo layout
+  function makeWindowLabel(text, size, color, weight) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    div.style.cssText = `color:${color};font-family:ui-monospace,monospace;font-size:${size}px;font-weight:${weight};letter-spacing:0.4px;pointer-events:none;text-shadow:0 0 3px rgba(8,12,18,0.9);`;
+    return new CSS2DObject(div);
+  }
+  [[-COL_OFF, 'A'], [COL_OFF, 'B']].forEach(([cx, letter]) => {
+    for (let i = 1; i <= WINDOW_COUNT; i++) {
+      const pillY = 14 + (i - 1) * (PILL_T + 0.15);
+      const lbl = makeWindowLabel(String(i), 8.5, '#dff0ff', 500);
+      lbl.position.set(cx + (cx > 0 ? 3.2 : -3.2), pillY, D / 2 + 0.05);
+      housingG.add(lbl);
+    }
+    const hdr = makeWindowLabel(letter, 13, '#ffffff', 700);
+    hdr.position.set(cx, winWorldYCenter + STACK_H / 2 + 4, D / 2 + 0.05);
+    housingG.add(hdr);
+  });
+
+  const cavity = new THREE.Mesh(
+    new THREE.BoxGeometry(W - WALL * 2, bodyH - 4, D - WALL * 2),
+    new THREE.MeshPhysicalMaterial({ color: 0x5a9bc0, roughness: 0.45, metalness: 0.02, transparent: true, opacity: 0.12 })
+  );
+  cavity.position.y = bodyH / 2;
+  housingG.add(cavity);
+  groups.housing = housingG;
+  root.add(housingG);
+
+  // 2. Sleeve
+  const sleeveG = new THREE.Group();
+  sleeveG.name = 'sleeve';
+  const gripL = new THREE.Mesh(new THREE.BoxGeometry(2.2, 68, D - 1.5), mat.sleeve);
+  gripL.position.set(-W / 2 + 1.0, 42, 0);
+  gripL.userData.compKey = 'sleeve';
+  sleeveG.add(gripL);
+  const gripR = gripL.clone();
+  gripR.position.x = W / 2 - 1.0;
+  gripR.userData.compKey = 'sleeve';
+  sleeveG.add(gripR);
+  groups.sleeve = sleeveG;
+  root.add(sleeveG);
+
+  // 3. Loading Cap
+  const capG = new THREE.Group();
+  capG.name = 'cap';
+  const capMesh = new THREE.Mesh(roundedBoxGeo(W - 0.8, 15, D - 0.8, 2.8), mat.housing);
+  capMesh.position.y = 7.5;
+  capMesh.userData.compKey = 'cap';
+  capG.add(capMesh);
+  const logo = new THREE.Mesh(new THREE.BoxGeometry(16, 3.5, 0.5), new THREE.MeshPhysicalMaterial({ color: 0x4a90c0, roughness: 0.35 }));
+  logo.position.set(0, 10, D / 2 - 0.3);
+  capG.add(logo);
+  capG.position.y = H - 15;
+  groups.cap = capG;
+  root.add(capG);
+
+  // 4. Dual Channels — higher transmission so pills stay visible
+  const chanG = new THREE.Group();
+  chanG.name = 'channels';
+  function makeChannel(xOff) {
+    const g = new THREE.Group();
+    const tube = new THREE.Mesh(new THREE.BoxGeometry(CHAN_W, STACK_H, 10.5), mat.clearPC);
+    tube.position.set(xOff, 12 + STACK_H / 2, 0);
+    tube.userData.compKey = 'channels';
+    g.add(tube);
+    for (let i = 0; i < 36; i++) {
+      const rib = new THREE.Mesh(
+        new THREE.BoxGeometry(0.15, 0.3, 9.5),
+        new THREE.MeshBasicMaterial({ color: 0x7aa8c8, transparent: true, opacity: 0.4 })
+      );
+      rib.position.set(xOff + (xOff > 0 ? CHAN_W / 2 - 0.2 : -CHAN_W / 2 + 0.2), 14 + i * 2.0, 0);
+      g.add(rib);
+    }
+    return g;
+  }
+  chanG.add(makeChannel(-COL_OFF));
+  chanG.add(makeChannel(COL_OFF));
+  const ramp = new THREE.Mesh(new THREE.BoxGeometry(CHAN_W * 2 + 2, 1.5, 8), mat.ss304);
+  ramp.position.set(0, 10, 3);
+  ramp.rotation.x = -20 * Math.PI / 180;
+  ramp.userData.compKey = 'channels';
+  chanG.add(ramp);
+  groups.channels = chanG;
+  root.add(chanG);
+
+  // 5. Tablet Stacks — accurate Ø9.5 × 3.0 mm, white, always visible
+  const pillsG = new THREE.Group();
+  pillsG.name = 'pills';
+  function makeStack(xOff) {
+    const g = new THREE.Group();
+    g.userData.baseX = xOff;
+    // Flat horizontal tablets stacked face-to-face (cylinder axis = Y)
+    const pitch = PILL_T + 0.15;
+    for (let i = 0; i < 15; i++) {
+      const pill = new THREE.Mesh(
+        new THREE.CylinderGeometry(PILL_D / 2, PILL_D / 2, PILL_T, 28),
+        mat.pill
+      );
+      // Axis vertical → tablets lie flat, stacked on top of each other
+      pill.position.set(xOff, 14 + i * pitch, 0);
+      pill.userData.compKey = 'pills';
+      pill.userData.homeY = 14 + i * pitch;
+      pill.userData.stackIdx = i;
+      pill.castShadow = true;
+      g.add(pill);
+    }
+    return g;
+  }
+  pillsG.add(makeStack(-COL_OFF));
+  pillsG.add(makeStack(COL_OFF));
+  groups.pills = pillsG;
+  root.add(pillsG);
+
+  // 6. Mag-Spring
+  const springsG = new THREE.Group();
+  springsG.name = 'springs';
+  function makeSpringAssy(xOff) {
+    const g = new THREE.Group();
+    const boss = new THREE.Mesh(new THREE.CylinderGeometry(SPRING_OD / 2, SPRING_OD / 2, SPRING_H, 20), mat.zsuc);
+    boss.position.set(xOff, SPRING_H / 2, 0);
+    boss.userData.compKey = 'springs';
+    g.add(boss);
+    const bore = new THREE.Mesh(new THREE.CylinderGeometry(SPRING_ID / 2, SPRING_ID / 2, SPRING_H + 0.5, 16), new THREE.MeshBasicMaterial({ color: 0x0a1018 }));
+    bore.position.set(xOff, SPRING_H / 2, 0);
+    g.add(bore);
+    const spring = makeSpring(7.5, 5.5, 14, 8, 0.50);
+    spring.position.set(xOff, 8, 0);
+    spring.userData.compKey = 'springs';
+    g.add(spring);
+    const mag = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 1.5, 16), new THREE.MeshStandardMaterial({ color: 0x303038, metalness: 0.6, roughness: 0.3 }));
+    mag.position.set(xOff, 1.2, 0);
+    g.add(mag);
+    return g;
+  }
+  springsG.add(makeSpringAssy(-COL_OFF));
+  springsG.add(makeSpringAssy(COL_OFF));
+  groups.springs = springsG;
+  root.add(springsG);
+
+  // 7. Pushers
+  const pushG = new THREE.Group();
+  pushG.name = 'pushers';
+  function makePusher(xOff) {
+    const g = new THREE.Group();
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(PUSHER_OD / 2, PUSHER_OD / 2, PUSHER_T, 20), mat.anodAl);
+    plate.position.set(xOff, 16, 0);
+    plate.userData.compKey = 'pushers';
+    g.add(plate);
+    const liner = new THREE.Mesh(new THREE.CylinderGeometry(PUSHER_OD / 2 - 0.3, PUSHER_OD / 2 - 0.3, 1.0, 16), mat.silicone);
+    liner.position.set(xOff, 16 + PUSHER_T / 2 + 0.5, 0);
+    g.add(liner);
+    return g;
+  }
+  pushG.add(makePusher(-COL_OFF));
+  pushG.add(makePusher(COL_OFF));
+  groups.pushers = pushG;
+  root.add(pushG);
+
+  // 8. Y-Diverter
+  const yG = new THREE.Group();
+  yG.name = 'ydiverter';
+  const yShape = new THREE.Shape();
+  yShape.moveTo(0, 7);
+  yShape.lineTo(-8.5, -5);
+  yShape.lineTo(-2.5, -5);
+  yShape.lineTo(0, 1);
+  yShape.lineTo(2.5, -5);
+  yShape.lineTo(8.5, -5);
+  yShape.lineTo(0, 7);
+  const yGeo = new THREE.ExtrudeGeometry(yShape, { depth: 7, bevelEnabled: false });
+  yGeo.translate(0, 0, -3.5);
+  const yMesh = new THREE.Mesh(yGeo, mat.ss304);
+  yMesh.position.y = 90;
+  yMesh.userData.compKey = 'ydiverter';
+  yG.add(yMesh);
+  groups.ydiverter = yG;
+  root.add(yG);
+
+  // 8b. Dispensing Aperture — flush, sliding door (Pez-style push-out), right side
+  const apG = new THREE.Group();
+  apG.name = 'aperture';
+  const apX = W / 2; // exactly flush with the outer housing wall — nothing protrudes
+  // Flush trim frame around the opening (does not stand proud of the housing)
+  const frameOuter = new THREE.Mesh(new THREE.BoxGeometry(0.8, APERTURE_W + 2.0, APERTURE_W + 2.0), mat.ss304);
+  frameOuter.position.set(apX - 0.05, APERTURE_Y, 0);
+  frameOuter.userData.compKey = 'aperture';
+  apG.add(frameOuter);
+  // Recessed dark throat behind the door — only visible once the door slides open
+  const frameBore = new THREE.Mesh(new THREE.BoxGeometry(3.2, APERTURE_W, APERTURE_W), new THREE.MeshBasicMaterial({ color: 0x05080c }));
+  frameBore.position.set(apX - 1.6, APERTURE_Y, 0);
+  apG.add(frameBore);
+  // 1.5mm 30A TPE cushioned lip — flush inset ring around the inner edge, not protruding
+  const tpeLip = new THREE.Mesh(new THREE.TorusGeometry(APERTURE_W / 2 - 0.3, TPE_LIP, 10, 4, Math.PI * 2), mat.tpe);
+  tpeLip.position.set(apX - 0.3, APERTURE_Y, 0);
+  tpeLip.rotation.y = Math.PI / 2;
+  tpeLip.rotation.z = Math.PI / 4;
+  tpeLip.userData.compKey = 'aperture';
+  apG.add(tpeLip);
+  // Sliding door — flush, housing-colored so it disappears into the shell when
+  // shut; slides horizontally along Z (like a Pez dispenser gate) to release
+  const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, APERTURE_W + 0.6, APERTURE_W + 0.6), mat.housing);
+  doorMesh.position.set(apX - 0.15, APERTURE_Y, 0);
+  doorMesh.userData.compKey = 'aperture';
+  apG.add(doorMesh);
+  groups.aperture = apG;
+  groups.apertureDoor = doorMesh;
+  root.add(apG);
+  // Pill rests here after ejection — centered exactly on the outer wall
+  // plane, so (being symmetric) exactly half the tablet sticks out, Pez-style
+  groups.apertureHalfOut = new THREE.Vector3(apX, APERTURE_Y, 0);
+  // Fully-clear reference point, kept for retract/teardown calculations
+  groups.apertureExit = new THREE.Vector3(apX + 4.0, APERTURE_Y, 0);
+
+  // 9. Iris — repositioned so the full 25.00mm OD disc sits inside the
+  // housing/cap envelope at rest (no resize; the 25mm spec is unchanged)
+  const IRIS_Y = 95.0;
+  const irisG = new THREE.Group();
+  irisG.name = 'iris';
+  const irisPlate = new THREE.Mesh(new THREE.CylinderGeometry(IRIS_OD / 2, IRIS_OD / 2, IRIS_T, 32), mat.iris);
+  irisPlate.rotation.x = Math.PI / 2;
+  irisPlate.position.set(0, IRIS_Y, 0);
+  irisPlate.userData.compKey = 'iris';
+  irisG.add(irisPlate);
+  const recess = new THREE.Mesh(new THREE.CylinderGeometry(13.2, 13.2, 2.8, 32), new THREE.MeshPhysicalMaterial({ color: 0x3a5068, transparent: true, opacity: 0.3 }));
+  recess.rotation.x = Math.PI / 2;
+  recess.position.set(0, IRIS_Y, 0);
+  irisG.add(recess);
+  const pivot = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 4, 12), mat.ss316);
+  pivot.position.set(3.5, IRIS_Y, 0);
+  pivot.userData.compKey = 'iris';
+  irisG.add(pivot);
+  const tSpring = makeSpring(3.5, 2.0, 3.5, 5, 0.4);
+  tSpring.scale.set(0.7, 0.7, 0.7);
+  tSpring.position.set(3.5, IRIS_Y, 2.8);
+  tSpring.rotation.x = Math.PI / 2;
+  irisG.add(tSpring);
+  groups.iris = irisG;
+  root.add(irisG);
+
+  // 10. Thumb Sliders — built into the housing shell (recessed track, flush
+  // body, only the ridged grip tab reads as slightly proud), rest position
+  // at the bottom of the housing beside the spring/pusher zone. Geometry is
+  // relative to the group's own local origin so group.position.y alone
+  // represents world height.
+  const SLIDER_BASE_Y = 18.0;
+  const sliderG = new THREE.Group();
+  sliderG.name = 'sliders';
+  function makeSlider(xSign) {
+    const g = new THREE.Group();
+    g.userData.baseY = SLIDER_BASE_Y;
+    const sx = xSign * (W / 2 - 0.8);
+    // Recessed track groove cut into the shell — sells the "built-in" look
+    const track = new THREE.Mesh(new THREE.BoxGeometry(4.4, 16, 0.6), new THREE.MeshBasicMaterial({ color: 0x0a1420 }));
+    track.position.set(sx, 0, D / 2 - 0.9);
+    g.add(track);
+    // Flush slider body — sits within the track, not proud of the housing
+    const body = new THREE.Mesh(new THREE.BoxGeometry(3.6, 13, 1.2), mat.slider);
+    body.position.set(sx, 0, D / 2 - 0.55);
+    body.userData.compKey = 'sliders';
+    g.add(body);
+    // Grip tab — the only part that stands slightly proud, for the thumb
+    for (let i = 0; i < 5; i++) {
+      const ridge = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.5, 0.3), mat.anodAl);
+      ridge.position.set(sx, -3.6 + i * 1.8, D / 2 + 0.15);
+      ridge.userData.compKey = 'sliders';
+      g.add(ridge);
+    }
+    g.position.y = SLIDER_BASE_Y;
+    return g;
+  }
+  sliderG.add(makeSlider(-1));
+  sliderG.add(makeSlider(1));
+  groups.sliders = sliderG;
+  root.add(sliderG);
+
+  // 11. Z-SUC
+  const zsucG = new THREE.Group();
+  zsucG.name = 'zsuc';
+  const zBody = new THREE.Mesh(new THREE.CylinderGeometry(13.5, 14.5, 16, 32), mat.zsuc);
+  zBody.position.y = 8;
+  zBody.userData.compKey = 'zsuc';
+  zsucG.add(zBody);
+  for (let i = 0; i < 5; i++) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(14.2, 0.28, 6, 32), new THREE.MeshPhysicalMaterial({ color: 0xd0d0cc, roughness: 0.45 }));
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 3 + i * 2.4;
+    zsucG.add(ring);
+  }
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    const lug = new THREE.Mesh(new THREE.BoxGeometry(3.5, 2.8, 4.5), mat.ss316);
+    lug.position.set(Math.cos(a) * 14.5, 15, Math.sin(a) * 14.5);
+    lug.userData.compKey = 'zsuc';
+    zsucG.add(lug);
+  }
+  const funnel = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 9, 9, 24, 1, true), new THREE.MeshPhysicalMaterial({ color: 0xe8e8e4, side: THREE.BackSide, roughness: 0.22 }));
+  funnel.position.y = 11;
+  zsucG.add(funnel);
+  const gasket = new THREE.Mesh(new THREE.TorusGeometry(11, 0.6, 8, 32), mat.silicone);
+  gasket.rotation.x = Math.PI / 2;
+  gasket.position.y = 15.5;
+  zsucG.add(gasket);
+  zsucG.position.y = H + 4;
+  groups.zsuc = zsucG;
+  root.add(zsucG);
+
+  // 12. Vial
+  const vialG = new THREE.Group();
+  vialG.name = 'vial';
+  const vialMesh = new THREE.Mesh(new THREE.CylinderGeometry(11.5, 11.5, 50, 32), mat.vial);
+  vialMesh.position.y = 25;
+  vialMesh.userData.compKey = 'vial';
+  vialG.add(vialMesh);
+  // pills inside vial — flat stacked
+  for (let i = 0; i < 8; i++) {
+    const vp = new THREE.Mesh(new THREE.CylinderGeometry(PILL_D / 2 * 0.9, PILL_D / 2 * 0.9, PILL_T * 0.9, 16), mat.pill);
+    vp.position.set((i % 2 - 0.5) * 4, 8 + i * (PILL_T * 0.9 + 0.2), 0);
+    vp.userData.isVialPill = true;
+    vialG.add(vp);
+  }
+  vialG.position.y = H + 20;
+  vialG.visible = false;
+  groups.vial = vialG;
+  root.add(vialG);
+
+  // Dimension + component name callouts
+  const dimG = new THREE.Group();
+  dimG.name = 'dims';
+  const labels = [
+    ['Housing  110.00 mm H', 24, H / 2, 0],
+    ['Envelope  28.00 × 15.00 mm', 0, -8, 16],
+    ['Channel  11.00 mm', -20, 55, 12],
+    ['Stack  75.00 mm (15×)', 22, 50, 12],
+    ['Thumb Slider  15.50 mm stroke', 20, 58, 14],
+    ['Spring Boss  8.50 / 4.80 mm', 18, 10, 12],
+    ['Tablet  Ø9.5 × 3.0 mm', -18, 42, 12],
+    ['Iris Gate  25.00 OD × 2.50 mm', 20, 100, 10],
+    ['Y-Diverter  Kinetic 50/50', -20, 90, 10],
+    ['Z-SUC  28–38 mm · 15° lock', 0, H + 20, 18]
+  ];
+  labels.forEach(([txt, x, y, z]) => {
+    const lab = makeDimLabel(txt);
+    lab.position.set(x, y, z);
+    dimG.add(lab);
+    dimLabels.push(lab);
+  });
+  groups.dims = dimG;
+  root.add(dimG);
+
+  const explodeMap = {
+    cap: new THREE.Vector3(0, 40, 0),
+    zsuc: new THREE.Vector3(0, 55, 0),
+    vial: new THREE.Vector3(0, 90, 0),
+    ydiverter: new THREE.Vector3(0, 28, 0),
+    iris: new THREE.Vector3(0, 35, 0),
+    pills: new THREE.Vector3(0, 12, 0),
+    pushers: new THREE.Vector3(0, -8, 0),
+    springs: new THREE.Vector3(0, -18, 0),
+    sliders: new THREE.Vector3(0, 0, 14),
+    channels: new THREE.Vector3(0, 6, 0),
+    sleeve: new THREE.Vector3(0, 0, -8),
+    housing: new THREE.Vector3(0, 0, 0)
+  };
+  Object.keys(explodeMap).forEach(k => {
+    if (groups[k]) {
+      groups[k].userData.origin = groups[k].position.clone();
+      groups[k].userData.explode = explodeMap[k];
+    }
+  });
+
+  scene.add(root);
+  groups.root = root;
+  return root;
+}
+
+function updateExplosion(t) {
+  explosion = t;
+  Object.keys(groups).forEach(k => {
+    const g = groups[k];
+    if (!g || !g.userData || !g.userData.explode) return;
+    const o = g.userData.origin || new THREE.Vector3();
+    const e = g.userData.explode;
+    g.position.lerpVectors(o, o.clone().add(e), t / 100);
+  });
+  document.getElementById('expl-val').textContent = Math.round(t) + '%';
+}
+
+function setHud(msg) { document.getElementById('hud-text').textContent = msg; }
+
+function setCine(step, desc, progress) {
+  const bar = document.getElementById('cine-bar');
+  bar.style.display = 'block';
+  document.getElementById('cine-step').textContent = step;
+  document.getElementById('cine-desc').textContent = desc;
+  document.getElementById('cine-progress').style.width = progress + '%';
+}
+
+function hideCine() {
+  document.getElementById('cine-bar').style.display = 'none';
+}
+
+function stopAnim() {
+  animating = false;
+  camPathAnimating = false;
+  if (animFrame) cancelAnimationFrame(animFrame);
+  animFrame = null;
+  if (controls) controls.enabled = true;
+  hideCine();
+}
+
+function animateValue(from, to, duration, onUpdate, onComplete) {
+  const start = performance.now();
+  function step(now) {
+    if (!animating) return;
+    const t = Math.min(1, (now - start) / duration);
+    const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    onUpdate(from + (to - from) * eased);
+    if (t < 1) animFrame = requestAnimationFrame(step);
+    else if (onComplete) onComplete();
+  }
+  animating = true;
+  animFrame = requestAnimationFrame(step);
+}
+
+// ── Cinematic camera motion paths per state ──
+const CAM_PATHS = {
+  prep: [
+    { pos: new THREE.Vector3(90, 95, 160), target: new THREE.Vector3(0, 55, 0) },
+    { pos: new THREE.Vector3(55, 125, 90), target: new THREE.Vector3(0, 105, 0) }
+  ],
+  // State 1: Docking & 15° Lock
+  state1: [
+    { pos: new THREE.Vector3(55, 125, 90), target: new THREE.Vector3(0, 105, 0) },
+    { pos: new THREE.Vector3(30, 118, 55), target: new THREE.Vector3(0, 108, 0) },
+    { pos: new THREE.Vector3(40, 112, 65), target: new THREE.Vector3(0, 105, 5) },
+    { pos: new THREE.Vector3(55, 105, 45), target: new THREE.Vector3(0, 100, 0) }
+  ],
+  // State 2: Iris Open & Gravity Feed
+  state2: [
+    { pos: new THREE.Vector3(55, 105, 45), target: new THREE.Vector3(0, 100, 0) },
+    { pos: new THREE.Vector3(35, 100, 60), target: new THREE.Vector3(0, 95, 0) },
+    { pos: new THREE.Vector3(50, 70, 75), target: new THREE.Vector3(0, 60, 0) },
+    { pos: new THREE.Vector3(60, 45, 85), target: new THREE.Vector3(0, 40, 0) }
+  ],
+  // State 3: Slider Cycle & Dispensing
+  state3: [
+    { pos: new THREE.Vector3(60, 45, 85), target: new THREE.Vector3(0, 40, 0) },
+    { pos: new THREE.Vector3(45, 55, 70), target: new THREE.Vector3(0, 50, 8) },
+    { pos: new THREE.Vector3(25, 52, 55), target: new THREE.Vector3(0, 50, 10) },
+    { pos: new THREE.Vector3(40, 40, 90), target: new THREE.Vector3(0, 25, 5) }
+  ],
+  // State 4: Fail-Safe Lockout
+  state4: [
+    { pos: new THREE.Vector3(40, 40, 90), target: new THREE.Vector3(0, 25, 5) },
+    { pos: new THREE.Vector3(20, 55, 40), target: new THREE.Vector3(8, 50, 8) },
+    { pos: new THREE.Vector3(15, 52, 35), target: new THREE.Vector3(10, 50, 10) }
+  ],
+  // State 5: Ejection — right column, top-right Pez-style aperture exit
+  state5: [
+    { pos: new THREE.Vector3(15, 52, 35), target: new THREE.Vector3(10, 50, 10) },
+    { pos: new THREE.Vector3(25, 65, 45), target: new THREE.Vector3(8, 70, 5) },
+    { pos: new THREE.Vector3(38, 85, 40), target: new THREE.Vector3(14, 90, 0) },
+    { pos: new THREE.Vector3(48, 96, 30), target: new THREE.Vector3(20, 96, 0) }
+  ],
+  hero: [
+    { pos: new THREE.Vector3(70, 40, 130), target: new THREE.Vector3(0, 30, 0) },
+    { pos: new THREE.Vector3(0, 65, 155), target: new THREE.Vector3(0, 55, 0) },
+    { pos: new THREE.Vector3(-65, 80, 120), target: new THREE.Vector3(0, 55, 0) },
+    { pos: new THREE.Vector3(75, 80, 145), target: new THREE.Vector3(0, 55, 0) }
+  ],
+};
+// Legacy aliases for individual step buttons
+CAM_PATHS.dock = CAM_PATHS.state1;
+CAM_PATHS.lock = CAM_PATHS.state1;
+CAM_PATHS.fill = CAM_PATHS.state2;
+CAM_PATHS.seal = CAM_PATHS.state5;
+CAM_PATHS.prep = [
+  { pos: new THREE.Vector3(90, 95, 160), target: new THREE.Vector3(0, 55, 0) },
+  { pos: new THREE.Vector3(55, 125, 90), target: new THREE.Vector3(0, 105, 0) }
+];
+
+let camPathAnimating = false;
+
+function animateCameraPath(keyframes, duration, onComplete) {
+  if (!keyframes || keyframes.length < 2) {
+    if (onComplete) onComplete();
+    return;
+  }
+  const posPts = keyframes.map(k => k.pos.clone());
+  const tgtPts = keyframes.map(k => k.target.clone());
+  const posCurve = new THREE.CatmullRomCurve3(posPts);
+  const tgtCurve = new THREE.CatmullRomCurve3(tgtPts);
+  posCurve.curveType = 'catmullrom';
+  tgtCurve.curveType = 'catmullrom';
+  posCurve.tension = 0.3;
+  tgtCurve.tension = 0.3;
+
+  const start = performance.now();
+  camPathAnimating = true;
+  // Temporarily disable orbit damping conflict
+  const prevEnable = controls.enabled;
+  controls.enabled = false;
+
+  function step(now) {
+    if (!animating && !camPathAnimating) {
+      controls.enabled = prevEnable;
+      return;
+    }
+    const t = Math.min(1, (now - start) / duration);
+    // Smooth ease in-out
+    const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    const p = posCurve.getPoint(eased);
+    const tg = tgtCurve.getPoint(eased);
+    camera.position.copy(p);
+    controls.target.copy(tg);
+    controls.update();
+    if (t < 1) {
+      requestAnimationFrame(step);
+    } else {
+      camPathAnimating = false;
+      controls.enabled = prevEnable;
+      if (onComplete) onComplete();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+// Run camera path in parallel with another action (doesn't block animating flag alone)
+function playCamPath(name, duration) {
+  const path = CAM_PATHS[name];
+  if (path) animateCameraPath(path, duration, null);
+}
+
+function setIris(open) {
+  irisOpen = open;
+  if (groups.iris) groups.iris.rotation.y = open * (Math.PI / 2);
+}
+
+function setCap(open) {
+  capOpen = open;
+  if (groups.cap) {
+    groups.cap.rotation.x = -open * Math.PI * 0.6;
+    groups.cap.position.z = open * 5;
+  }
+}
+
+function setSpring(c) {
+  springComp = c;
+  if (groups.springs) { groups.springs.scale.y = 1 - c * 0.4; groups.springs.position.y = -c * 3; }
+  if (groups.pushers) groups.pushers.position.y = -c * 7;
+  if (groups.pills) groups.pills.position.y = -c * 5;
+}
+
+function setSliderStroke(t) {
+  if (!groups.sliders) return;
+  groups.sliders.children.forEach(s => { s.position.y = (s.userData.baseY || 50) + t * SLIDER_STROKE; });
+}
+
+// Reset all pills to home positions (visible, correct size)
+function resetPillsHome() {
+  if (!groups.pills) return;
+  // Reclaim any pill still mechanically captured by a slider mid-ejection
+  if (groups.sliders) {
+    groups.sliders.children.forEach(slider => {
+      [...slider.children].forEach(child => {
+        if (child.userData && child.userData.compKey === 'pills') {
+          slider.remove(child);
+          (child.userData.homeStack || groups.pills.children[0]).add(child);
+        }
+      });
+    });
+  }
+  // Also reclaim a pill mid-flight through the aperture (reparented to groups.pills directly)
+  [...groups.pills.children].forEach(child => {
+    if (child.userData && child.userData.compKey === 'pills' && child.userData.homeStack) {
+      groups.pills.remove(child);
+      child.userData.homeStack.add(child);
+    }
+  });
+  groups.pills.children.forEach(stack => {
+    stack.children.forEach(pill => {
+      pill.scale.setScalar(1);
+      pill.visible = true;
+      pill.position.x = stack.userData.baseX;
+      pill.position.y = pill.userData.homeY;
+      pill.position.z = 0;
+    });
+    stack.userData.dispensedPill = null;
+  });
+  groups.pills.position.set(0, 0, 0);
+  groups.pills.visible = true;
+  if (groups.apertureDoor) groups.apertureDoor.position.z = 0;
+  countA = 15; countB = 15;
+  updateCounters();
+}
+
+// Hide channel pills (for transfer start)
+function hideChannelPills() {
+  if (!groups.pills) return;
+  groups.pills.children.forEach(stack => {
+    stack.children.forEach(pill => {
+      pill.scale.setScalar(0.01);
+      pill.position.y = pill.userData.homeY + 40;
+    });
+  });
+}
+
+// ── Live tablet counter (top-right, next to XYZ gizmo) ──
+function updateCounters() {
+  const elA = document.getElementById('count-a');
+  const elB = document.getElementById('count-b');
+  if (elA) elA.textContent = countA;
+  if (elB) elB.textContent = countB;
+}
+function flashCounter(colIdx) {
+  const el = document.getElementById(colIdx === 0 ? 'count-a' : 'count-b');
+  if (!el) return;
+  el.classList.add('pc-flash');
+  setTimeout(() => el.classList.remove('pc-flash'), 260);
+}
+function decrementCounter(colIdx) {
+  if (colIdx === 0) countA = Math.max(0, countA - 1);
+  else countB = Math.max(0, countB - 1);
+  updateCounters();
+  flashCounter(colIdx);
+}
+
+// colIdx: 0 = left column "A", 1 = right column "B"
+function getColumn(colIdx) {
+  return {
+    stack: groups.pills ? groups.pills.children[colIdx] : null,
+    slider: groups.sliders ? groups.sliders.children[colIdx] : null,
+    letter: colIdx === 0 ? 'A' : 'B'
+  };
+}
+
+// Mechanical Pez-style ejection: the top pill is captured as a CHILD of the
+// thumb-slider for its 15.50mm stroke (true mechanical link), then released
+// into the Y-Diverter throat and carried up through the Dispensing Aperture
+// and out the right-side Pez-style sliding door (TPE-cushioned lip).
+function ejectPill(colIdx, cb) {
+  const col = getColumn(colIdx);
+  const stack = col.stack, slider = col.slider;
+  if (!stack || !slider || !stack.children.length) { if (cb) cb(); return; }
+
+  // Clear out any tablet still resting half-out from a previous cycle so the
+  // holder is free, and make sure the door is shut before we start again
+  if (stack.userData.dispensedPill && stack.userData.dispensedPill.visible) {
+    const old = stack.userData.dispensedPill;
+    old.visible = false;
+    old.scale.setScalar(1);
+    old.position.set(stack.userData.baseX, old.userData.homeY, 0);
+    stack.userData.dispensedPill = null;
+  }
+  if (groups.apertureDoor) groups.apertureDoor.position.z = 0;
+
+  let topPill = null;
+  for (let i = stack.children.length - 1; i >= 0; i--) {
+    if (stack.children[i].visible) { topPill = stack.children[i]; break; }
+  }
+  if (!topPill) { if (cb) cb(); return; }
+
+  const sliderBaseY = slider.userData.baseY || SLIDER_BASE_Y;
+  const pillHomeY = topPill.userData.homeY;
+  topPill.userData.homeStack = stack;
+
+  setHud(`Column ${col.letter} — Thumb-Slider Rising From Base`);
+
+  // Phase 1: slider travels alone, from the bottom of the housing up to the
+  // height of the top-most tablet (the "approach" — nothing captured yet)
+  animateValue(sliderBaseY, pillHomeY, 700, v => {
+    slider.position.y = v;
+  }, () => {
+    setHud(`Column ${col.letter} — Thumb-Slider Engaging Tablet`);
+    // Phase 2: engage — the pill becomes a true child of the slider at zero
+    // local offset, so from here they move in exact lock-step (guaranteed-
+    // parallel) all the way up to the dispensing door
+    topPill.position.set(0, 0, 4.4);
+    slider.add(topPill);
+
+    animateValue(pillHomeY, APERTURE_Y, 900, v => {
+      slider.position.y = v;
+    }, () => {
+      setHud(`Column ${col.letter} — Arrived at Dispensing Door`);
+      // Detach at the door, preserving exact world position
+      const worldPos = new THREE.Vector3();
+      topPill.getWorldPosition(worldPos);
+      slider.remove(topPill);
+      groups.pills.add(topPill);
+      topPill.position.copy(worldPos);
+
+      // Sliding door opens horizontally (along Z), Pez-style, to clear the path
+      animateValue(0, 1, 220, v => {
+        groups.apertureDoor.position.z = v * DOOR_TRAVEL;
+      }, () => {
+        setHud(`Column ${col.letter} — Pez-Style Push-Through`);
+        const start = topPill.position.clone();
+        // Pill travels only to the half-out rest point — centered exactly on
+        // the outer wall, so it stops with half the tablet sticking out,
+        // visible and grabbable, like a Pez dispenser (it does not vanish)
+        const halfOut = groups.apertureHalfOut;
+        animateValue(0, 1, 380, v => {
+          topPill.position.x = start.x + (halfOut.x - start.x) * v;
+          topPill.position.y = start.y + (halfOut.y - start.y) * v;
+          topPill.position.z = start.z + (halfOut.z - start.z) * v;
+        }, () => {
+          stack.userData.dispensedPill = topPill;
+          decrementCounter(colIdx);
+          setHud(`Column ${col.letter} — Tablet Half-Ejected · Ready to Grab`);
+          // Slider returns empty-handed, all the way back down to base;
+          // the door is left open, since the tablet is still resting in it
+          animateValue(APERTURE_Y, sliderBaseY, 950, v => {
+            slider.position.y = v;
+          }, () => {
+            slider.position.y = sliderBaseY;
+            if (cb) cb();
+          });
+        });
+      });
+    });
+  });
+}
+
+// ── STATE SEQUENCE ENGINE ──
+
+// State 1: Docking & 15° Lock
+function runState1(cb, moveCamera = true) {
+  setHud('State 1 — Docking & 15° Lock');
+  setCine('State 1 of 5', 'Z-SUC docks · 15° CW bayonet lock', 15);
+  if (moveCamera) playCamPath('state1', 3200);
+  groups.zsuc.visible = true;
+  groups.vial.visible = true;
+  setCap(0);
+  // Open cap, then dock vial down, then 15° lock + iris begins
+  animateValue(0, 1, 900, setCap, () => {
+    const startY = groups.zsuc.position.y;
+    animateValue(startY, H - 1, 1100, v => {
+      groups.zsuc.position.y = v;
+      groups.vial.position.y = v + 16;
+    }, () => {
+      animateValue(0, 1, 1000, t => {
+        const ang = t * (15 * Math.PI / 180);
+        groups.zsuc.rotation.y = ang;
+        groups.vial.rotation.y = ang;
+        setIris(t * 0.3); // iris starts opening with lock
+      }, cb);
+    });
+  });
+}
+
+// State 2: Iris Open & Gravity Feed
+function runState2(cb, moveCamera = true) {
+  setHud('State 2 — Iris Open & Gravity Feed');
+  setCine('State 2 of 5', 'Iris swings open · 50/50 Y-split · flat stacks form', 40);
+  if (moveCamera) playCamPath('state2', 3800);
+  // Finish iris open
+  animateValue(irisOpen, 1, 600, setIris, () => {
+    groups.pills.visible = true;
+    if (groups.vial) {
+      groups.vial.children.forEach(c => { if (c.userData.isVialPill) c.visible = false; });
+    }
+    // Flat pills drop into dual columns
+    if (groups.pills) {
+      let total = 0, done = 0;
+      groups.pills.children.forEach(stack => {
+        stack.children.forEach((pill, i) => {
+          total++;
+          const targetY = pill.userData.homeY;
+          const startY = targetY + 45;
+          pill.position.y = startY;
+          pill.scale.setScalar(0.01);
+          pill.visible = true;
+          setTimeout(() => {
+            animateValue(0, 1, 420, t => {
+              pill.scale.setScalar(Math.max(0.01, t));
+              pill.position.y = startY + (targetY - startY) * t;
+              pill.position.x = stack.userData.baseX;
+              pill.position.z = 0;
+            }, () => {
+              done++;
+              if (done === total) {
+                // Mag-spring compresses stack under constant tension
+                animateValue(0, 0.4, 500, setSpring, () => {
+                  animateValue(0.4, 0.18, 350, setSpring, cb);
+                });
+              }
+            });
+          }, i * 55 + (stack === groups.pills.children[1] ? 80 : 0));
+        });
+      });
+    } else if (cb) cb();
+  });
+}
+
+// State 3: Slider Cycle & Dispensing
+function runState3(cb, moveCamera = true) {
+  setHud('State 3 — Slider Cycle & Dispensing');
+  setCine('State 3 of 5', 'Thumb-slider 15.50 mm stroke · single pill isolated', 60);
+  if (moveCamera) playCamPath('state3', 2800);
+  // Forward stroke
+  animateValue(0, 1, 900, setSliderStroke, () => {
+    // Hold at end of stroke briefly
+    setTimeout(() => {
+      // Return stroke
+      animateValue(1, 0, 700, setSliderStroke, cb);
+    }, 400);
+  });
+}
+
+// State 4: Mechanical Fail-Safe Lockout (demo freeze)
+function runState4(cb, moveCamera = true) {
+  setHud('State 4 — Fail-Safe Lockout');
+  setCine('State 4 of 5', 'Pawl drops · slider freezes mid-stroke (bridge protect)', 75);
+  if (moveCamera) playCamPath('state4', 2200);
+  // Slider advances to mid-stroke then freezes
+  animateValue(0, 0.55, 800, setSliderStroke, () => {
+    setHud('State 4 — LOCKED · Spring-loaded pawl engaged');
+    setTimeout(() => {
+      // Release lock and return
+      animateValue(0.55, 0, 600, setSliderStroke, cb);
+    }, 1200);
+  });
+}
+
+// State 5: Dispensing Ejection via Sliding Door
+function runState5(cb, moveCamera = true) {
+  setHud('State 5 — Ejection via Pez-Style Aperture (Column B / Right)');
+  setCine('State 5 of 5', 'Column B slider carries tablet · Aperture · TPE-cushioned exit', 90);
+  if (moveCamera) playCamPath('state5', 3400);
+  // Right column (B) ejects first, per product convention — pill rides the
+  // thumb-slider (mechanical link), then exits the top-right Pez-style aperture.
+  ejectPill(1, () => {
+    // Disconnect vial & seal
+    animateValue(1, 0, 700, t => {
+      groups.zsuc.rotation.y = t * (15 * Math.PI / 180);
+      groups.vial.rotation.y = t * (15 * Math.PI / 180);
+      setIris(t);
+    }, () => {
+      animateValue(groups.zsuc.position.y, H + 55, 900, v => {
+        groups.zsuc.position.y = v;
+        groups.vial.position.y = v + 16;
+      }, () => {
+        groups.vial.visible = false;
+        animateValue(1, 0, 600, setCap, () => {
+          setHud('Sequence Complete — Dose delivered · Device sealed');
+          setCine('Complete', 'All 5 states finished · Zero-spill verified', 100);
+          if (moveCamera) playCamPath('hero', 4500);
+          if (cb) cb();
+        });
+      });
+    });
+  });
+}
+
+// Legacy wrappers so old buttons still work
+function runDock(cb) { runState1(cb); }
+function runLock(cb) { runState1(cb); }
+function runFill(cb) { runState2(cb); }
+function runSeal(cb) { runState5(cb); }
+
+function runFullSequence() {
+  stopAnim();
+  animating = true;
+  applyViewMode('section');
+  setViewButtons('view-section');
+  document.getElementById('status-mode').textContent = 'Section (Cinematic)';
+
+  setHud('Starting 5-State Cinematic Sequence…');
+  setCine('Prep', 'Establishing shot · preparing transfer', 2);
+  setCap(0); setIris(0); setSpring(0); setSliderStroke(0);
+  countA = 15; countB = 15; updateCounters();
+  hideChannelPills();
+  groups.zsuc.position.y = H + 4;
+  groups.zsuc.rotation.y = 0;
+  groups.vial.position.y = H + 20;
+  groups.vial.rotation.y = 0;
+  groups.vial.visible = false;
+  groups.zsuc.visible = true;
+  if (groups.vial) {
+    groups.vial.children.forEach(c => { if (c.userData.isVialPill) c.visible = true; });
+  }
+
+  playCamPath('prep', 1400);
+
+  setTimeout(() => {
+    groups.vial.visible = true;
+    setTimeout(() => runState1(() => {
+      setTimeout(() => runState2(() => {
+        setTimeout(() => runState3(() => {
+          setTimeout(() => runState4(() => {
+            setTimeout(() => runState5(() => {
+              animating = false;
+              setTimeout(hideCine, 5000);
+            }), 400);
+          }), 350);
+        }), 300);
+      }), 300);
+    }), 600);
+  }, 500);
+}
+
+// Still Sequence — identical 5-state mechanical choreography, but with no
+// camera path motion and no view-mode cutaway. Camera and current view mode
+// are left exactly as the user has them.
+function runFullSequenceStill() {
+  stopAnim();
+  animating = true;
+
+  setHud('Starting 5-State Still Sequence…');
+  setCine('Prep', 'Preparing transfer (no camera motion)', 2);
+  setCap(0); setIris(0); setSpring(0); setSliderStroke(0);
+  countA = 15; countB = 15; updateCounters();
+  hideChannelPills();
+  groups.zsuc.position.y = H + 4;
+  groups.zsuc.rotation.y = 0;
+  groups.vial.position.y = H + 20;
+  groups.vial.rotation.y = 0;
+  groups.vial.visible = false;
+  groups.zsuc.visible = true;
+  if (groups.vial) {
+    groups.vial.children.forEach(c => { if (c.userData.isVialPill) c.visible = true; });
+  }
+
+  setTimeout(() => {
+    groups.vial.visible = true;
+    setTimeout(() => runState1(() => {
+      setTimeout(() => runState2(() => {
+        setTimeout(() => runState3(() => {
+          setTimeout(() => runState4(() => {
+            setTimeout(() => runState5(() => {
+              animating = false;
+              setTimeout(hideCine, 5000);
+            }, false), 400);
+          }, false), 350);
+        }, false), 300);
+      }, false), 300);
+    }, false), 600);
+  }, 500);
+}
+
+// ── X-Ray & Section view modes ──
+function backupMaterials() {
+  materialBackup.clear();
+  scene.traverse(obj => {
+    if (obj.isMesh && obj.material && !obj.userData.isGrid) {
+      materialBackup.set(obj.uuid, {
+        transparent: obj.material.transparent,
+        opacity: obj.material.opacity,
+        depthWrite: obj.material.depthWrite,
+        color: obj.material.color ? obj.material.color.clone() : null
+      });
+    }
+  });
+}
+
+function restoreMaterials() {
+  scene.traverse(obj => {
+    if (obj.isMesh && obj.material && materialBackup.has(obj.uuid)) {
+      const b = materialBackup.get(obj.uuid);
+      obj.material.transparent = b.transparent;
+      obj.material.opacity = b.opacity;
+      obj.material.depthWrite = b.depthWrite !== undefined ? b.depthWrite : true;
+      if (b.color && obj.material.color) obj.material.color.copy(b.color);
+      obj.material.needsUpdate = true;
+    }
+  });
+  // restore housing visibility if clipped
+  if (groups.housing) {
+    groups.housing.visible = true;
+    groups.housing.traverse(c => { if (c.isMesh) c.visible = true; });
+  }
+  if (groups.sleeve) groups.sleeve.visible = true;
+}
+
+function applyXRay() {
+  backupMaterials();
+  scene.traverse(obj => {
+    if (!obj.isMesh || !obj.material) return;
+    if (obj.userData.compKey === 'pills') {
+      // keep pills solid and bright
+      obj.material.transparent = false;
+      obj.material.opacity = 1;
+      return;
+    }
+    if (obj.userData.compKey === 'springs' || obj.userData.compKey === 'pushers' ||
+        obj.userData.compKey === 'ydiverter' || obj.userData.compKey === 'iris') {
+      obj.material.transparent = true;
+      obj.material.opacity = 0.7;
+      return;
+    }
+    obj.material.transparent = true;
+    obj.material.opacity = Math.min(obj.material.opacity || 1, 0.22);
+    obj.material.depthWrite = false;
+    obj.material.needsUpdate = true;
+  });
+}
+
+function applySection() {
+  backupMaterials();
+  // Make housing + sleeve highly transparent so internals show (cutaway effect)
+  if (groups.housing) {
+    groups.housing.traverse(c => {
+      if (c.isMesh && c.material) {
+        c.material = c.material.clone();
+        c.material.transparent = true;
+        c.material.opacity = 0.12;
+        c.material.depthWrite = false;
+        c.material.needsUpdate = true;
+      }
+    });
+  }
+  if (groups.sleeve) {
+    groups.sleeve.traverse(c => {
+      if (c.isMesh && c.material) {
+        c.material = c.material.clone();
+        c.material.transparent = true;
+        c.material.opacity = 0.08;
+        c.material.depthWrite = false;
+      }
+    });
+  }
+  // Channels more open
+  if (groups.channels) {
+    groups.channels.traverse(c => {
+      if (c.isMesh && c.material && c.material.transmission !== undefined) {
+        c.material.opacity = 0.12;
+        c.material.transmission = 0.9;
+      }
+    });
+  }
+  // Pills fully solid
+  if (groups.pills) {
+    groups.pills.traverse(c => {
+      if (c.isMesh) {
+        c.material.transparent = false;
+        c.material.opacity = 1;
+      }
+    });
+  }
+}
+
+function applyViewMode(mode) {
+  viewMode = mode;
+  restoreMaterials();
+  if (mode === 'xray') applyXRay();
+  else if (mode === 'section') applySection();
+}
+
+function setViewButtons(activeId) {
+  ['view-iso', 'view-front', 'view-side', 'view-top', 'view-exploded', 'view-section', 'view-xray'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', id === activeId);
+  });
+}
+
+function animateCam(pos, target, label) {
+  const startPos = camera.position.clone();
+  const startTarget = controls.target.clone();
+  const wasAnimating = animating;
+  animating = true;
+  animateValue(0, 1, 800, t => {
+    camera.position.lerpVectors(startPos, pos, t);
+    controls.target.lerpVectors(startTarget, target, t);
+  }, () => {
+    if (!wasAnimating) animating = false;
+    if (label) {
+      document.getElementById('status-mode').textContent = label;
+      setHud(label);
+    }
+  });
+}
+
+function onPointerMove(e) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+}
+
+function onPointerClick(e) {
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(scene.children, true);
+  for (const hit of hits) {
+    let obj = hit.object;
+    while (obj && !obj.userData.compKey) obj = obj.parent;
+    if (obj && obj.userData.compKey) {
+      showTelemetry(obj.userData.compKey);
+      return;
+    }
+  }
+  document.getElementById('telemetry').style.display = 'none';
+}
+
+function showTelemetry(key) {
+  const d = COMP_DB[key];
+  if (!d) return;
+  document.getElementById('tel-name').textContent = d.name;
+  document.getElementById('tel-mat').textContent = d.material;
+  document.getElementById('tel-tol').textContent = d.tol;
+  document.getElementById('tel-cost').textContent = d.cost;
+  document.getElementById('tel-lead').textContent = d.lead;
+  document.getElementById('tel-fea').textContent = d.fea;
+  document.getElementById('tel-des').textContent = d.designer;
+  document.getElementById('telemetry').style.display = 'block';
+}
+
+function initGizmo() {
+  const container = document.getElementById('gizmo-container');
+  gizmoScene = new THREE.Scene();
+  gizmoCam = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  gizmoCam.position.set(0, 0, 5);
+  gizmoRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  gizmoRenderer.setSize(90, 90);
+  gizmoRenderer.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(gizmoRenderer.domElement);
+  const axisLen = 1.4;
+  const makeAxis = (dir, color, letter) => {
+    const g = new THREE.Group();
+    const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), dir.clone().multiplyScalar(axisLen)]);
+    g.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color })));
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.28, 8), new THREE.MeshBasicMaterial({ color }));
+    cone.position.copy(dir.clone().multiplyScalar(axisLen));
+    cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    g.add(cone);
+    const canvas = document.createElement('canvas');
+    canvas.width = 32; canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#' + new THREE.Color(color).getHexString();
+    ctx.font = 'bold 20px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(letter, 16, 16);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas) }));
+    sprite.position.copy(dir.clone().multiplyScalar(axisLen + 0.35));
+    sprite.scale.set(0.5, 0.5, 0.5);
+    g.add(sprite);
+    return g;
+  };
+  gizmoScene.add(makeAxis(new THREE.Vector3(1, 0, 0), 0xe05050, 'X'));
+  gizmoScene.add(makeAxis(new THREE.Vector3(0, 1, 0), 0x50c070, 'Y'));
+  gizmoScene.add(makeAxis(new THREE.Vector3(0, 0, 1), 0x5090e0, 'Z'));
+}
+
+function updateGizmo() {
+  if (!gizmoCam || !controls) return;
+  gizmoCam.position.copy(camera.position).sub(controls.target).normalize().multiplyScalar(5);
+  gizmoCam.lookAt(0, 0, 0);
+  gizmoRenderer.render(gizmoScene, gizmoCam);
+}
+
+function init() {
+  const vp = document.getElementById('viewport');
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x080c12);
+  scene.fog = new THREE.FogExp2(0x080c12, 0.0015);
+
+  camera = new THREE.PerspectiveCamera(38, vp.clientWidth / vp.clientHeight, 0.5, 800);
+  camera.position.set(75, 80, 145);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  renderer.setSize(vp.clientWidth, vp.clientHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.35;
+  vp.insertBefore(renderer.domElement, vp.firstChild);
+
+  labelRenderer = new CSS2DRenderer();
+  labelRenderer.setSize(vp.clientWidth, vp.clientHeight);
+  labelRenderer.domElement.style.position = 'absolute';
+  labelRenderer.domElement.style.top = '0';
+  labelRenderer.domElement.style.pointerEvents = 'none';
+  vp.appendChild(labelRenderer.domElement);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 55, 0);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.07;
+  controls.minDistance = 35;
+  controls.maxDistance = 350;
+
+  // Brighter studio lighting
+  const amb = new THREE.AmbientLight(0x90a0b0, 0.5);
+  scene.add(amb);
+  const key = new THREE.DirectionalLight(0xfffaf0, 1.3);
+  key.position.set(90, 140, 100);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.camera.near = 10;
+  key.shadow.camera.far = 400;
+  key.shadow.camera.left = -80;
+  key.shadow.camera.right = 80;
+  key.shadow.camera.top = 120;
+  key.shadow.camera.bottom = -20;
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0xa0c0e0, 0.5);
+  fill.position.set(-70, 50, -50);
+  scene.add(fill);
+  const rim = new THREE.DirectionalLight(0xb0d8f8, 0.4);
+  rim.position.set(0, 40, -100);
+  scene.add(rim);
+  const hemi = new THREE.HemisphereLight(0x80a0c0, 0x101820, 0.3);
+  scene.add(hemi);
+
+  gridMesh = createCADGrid();
+  scene.add(gridMesh);
+  groups.grid = gridMesh;
+
+  bboxHelper = createBoundingBox();
+  scene.add(bboxHelper);
+  groups.bbox = bboxHelper;
+
+  buildModel();
+  backupMaterials();
+
+  raycaster = new THREE.Raycaster();
+  mouse = new THREE.Vector2();
+  renderer.domElement.addEventListener('pointermove', onPointerMove);
+  renderer.domElement.addEventListener('click', onPointerClick);
+
+  initGizmo();
+
+  document.getElementById('explosion').addEventListener('input', e => {
+    updateExplosion(+e.target.value);
+    if (+e.target.value > 5) {
+      setViewButtons('view-exploded');
+      document.getElementById('status-mode').textContent = 'Exploded ' + Math.round(+e.target.value) + '%';
+    }
+  });
+
+  document.getElementById('view-iso').onclick = () => {
+    applyViewMode('iso');
+    updateExplosion(0); document.getElementById('explosion').value = 0;
+    setViewButtons('view-iso');
+    animateCam(new THREE.Vector3(75, 80, 145), new THREE.Vector3(0, 55, 0), 'Isometric Nominal CAD');
+  };
+  document.getElementById('view-front').onclick = () => {
+    applyViewMode('iso');
+    setViewButtons('view-front');
+    animateCam(new THREE.Vector3(0, 55, 170), new THREE.Vector3(0, 55, 0), 'Front Elevation (X-Z)');
+  };
+  document.getElementById('view-side').onclick = () => {
+    applyViewMode('iso');
+    setViewButtons('view-side');
+    animateCam(new THREE.Vector3(170, 55, 0), new THREE.Vector3(0, 55, 0), 'Side Profile (Y-Z)');
+  };
+  document.getElementById('view-top').onclick = () => {
+    applyViewMode('iso');
+    setViewButtons('view-top');
+    animateCam(new THREE.Vector3(0, 200, 5), new THREE.Vector3(0, 50, 0), 'Top-Down Feed Track (X-Y)');
+  };
+  document.getElementById('view-exploded').onclick = () => {
+    applyViewMode('iso');
+    updateExplosion(80); document.getElementById('explosion').value = 80;
+    setViewButtons('view-exploded');
+    animateCam(new THREE.Vector3(90, 90, 150), new THREE.Vector3(0, 60, 0), 'Exploded View');
+  };
+  document.getElementById('view-section').onclick = () => {
+    applyViewMode('section');
+    updateExplosion(0); document.getElementById('explosion').value = 0;
+    setViewButtons('view-section');
+    animateCam(new THREE.Vector3(50, 60, 120), new THREE.Vector3(0, 55, 0), 'Section A-A Cutaway');
+  };
+  document.getElementById('view-xray').onclick = () => {
+    applyViewMode('xray');
+    updateExplosion(0); document.getElementById('explosion').value = 0;
+    setViewButtons('view-xray');
+    animateCam(new THREE.Vector3(70, 75, 140), new THREE.Vector3(0, 55, 0), 'X-Ray Translucent');
+  };
+
+  const toggleMap = {
+    'c-housing': 'housing', 'c-sleeve': 'sleeve', 'c-cap': 'cap',
+    'c-channels': 'channels', 'c-pills': 'pills', 'c-springs': 'springs',
+    'c-pushers': 'pushers', 'c-ydiverter': 'ydiverter', 'c-aperture': 'aperture', 'c-iris': 'iris',
+    'c-sliders': 'sliders', 'c-zsuc': 'zsuc', 'c-vial': 'vial',
+    'c-bbox': 'bbox', 'c-grid': 'grid', 'c-dims': 'dims'
+  };
+  Object.entries(toggleMap).forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', e => { if (groups[key]) groups[key].visible = e.target.checked; });
+  });
+
+  document.getElementById('anim-full').onclick = runFullSequence;
+  document.getElementById('anim-full-still').onclick = runFullSequenceStill;
+  document.getElementById('anim-s1').onclick = () => { stopAnim(); animating = true; applyViewMode('section'); groups.vial.visible = true; groups.zsuc.visible = true; runState1(() => { animating = false; hideCine(); }); };
+  document.getElementById('anim-s2').onclick = () => { stopAnim(); animating = true; applyViewMode('section'); hideChannelPills(); runState2(() => { animating = false; hideCine(); }); };
+  document.getElementById('anim-s3').onclick = () => { stopAnim(); animating = true; applyViewMode('section'); runState3(() => { animating = false; hideCine(); }); };
+  document.getElementById('anim-s4').onclick = () => { stopAnim(); animating = true; applyViewMode('section'); runState4(() => { animating = false; hideCine(); }); };
+  document.getElementById('anim-s5').onclick = () => { stopAnim(); animating = true; applyViewMode('section'); runState5(() => { animating = false; hideCine(); }); };
+
+  document.getElementById('anim-iris').onclick = () => {
+    stopAnim(); animating = true;
+    const target = irisOpen > 0.5 ? 0 : 1;
+    setHud(target ? 'Iris Gate Opening (90° swing)…' : 'Iris Gate Closing…');
+    animateValue(irisOpen, target, 700, setIris, () => {
+      animating = false;
+      setHud(target ? 'Iris Open — Gravity Port Active' : 'Iris Sealed — Fail-safe Closed');
+    });
+  };
+  document.getElementById('anim-spring').onclick = () => {
+    stopAnim(); animating = true;
+    setHud('Spring Compression Test (Mag-Spring)');
+    animateValue(0, 1, 600, setSpring, () => {
+      animateValue(1, 0, 700, setSpring, () => { animating = false; setHud('Springs Reset — Constant Tension'); });
+    });
+  };
+  document.getElementById('anim-dispense').onclick = () => {
+    stopAnim(); animating = true;
+    setHud('Precision Dispense — 15.50 mm Stroke · Column B (Right) First');
+    ejectPill(1, () => { animating = false; setHud('Dispense Complete — Single Pill Ejected (Column B)'); });
+  };
+  document.getElementById('anim-pills').onclick = () => {
+    stopAnim(); animating = true;
+    setHud('Gravity Pill Drop — Channel Constrained');
+    hideChannelPills();
+    runFill(() => { animating = false; hideCine(); setHud('Stacks Settled in 11.00 mm Channels'); });
+  };
+
+  document.getElementById('anim-reset').onclick = () => {
+    stopAnim();
+    applyViewMode('iso');
+    updateExplosion(0);
+    document.getElementById('explosion').value = 0;
+    setCap(0); setIris(0); setSpring(0); setSliderStroke(0);
+    resetPillsHome();
+    groups.zsuc.position.y = H + 4;
+    groups.zsuc.rotation.y = 0;
+    groups.vial.visible = false;
+    groups.vial.position.y = H + 20;
+    document.getElementById('telemetry').style.display = 'none';
+    setHud('System Reset — Assembled');
+    document.getElementById('status-mode').textContent = 'Isometric';
+    setViewButtons('view-iso');
+  };
+  document.getElementById('anim-stop').onclick = () => { stopAnim(); setHud('Animation Stopped'); };
+
+  window.addEventListener('resize', () => {
+    camera.aspect = vp.clientWidth / vp.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(vp.clientWidth, vp.clientHeight);
+    labelRenderer.setSize(vp.clientWidth, vp.clientHeight);
+  });
+
+  function loop() {
+    requestAnimationFrame(loop);
+    controls.update();
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+    updateGizmo();
+  }
+  loop();
+  updateCounters();
+  setHud('Assembled — Ready · Click any part for DFM · Play Full Sequence for cinematic transfer');
+}
+
+init();
+</script>
+</body>
+</html>
